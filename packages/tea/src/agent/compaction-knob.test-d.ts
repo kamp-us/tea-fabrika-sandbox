@@ -16,6 +16,16 @@ export const byBoth: DefineAgentCompaction = {
   keepTurns: 4,
 };
 
+// `keepTurns` rides on either arm.
+export const byTurnsKeeping: DefineAgentCompaction = {
+  afterTurns: 20,
+  keepTurns: 4,
+};
+export const byTokensKeeping: DefineAgentCompaction = {
+  afterContextTokens: 800_000,
+  keepTurns: 4,
+};
+
 // @ts-expect-error — no trigger at all.
 export const empty: DefineAgentCompaction = {};
 
