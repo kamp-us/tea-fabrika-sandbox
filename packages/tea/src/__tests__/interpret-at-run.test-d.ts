@@ -61,10 +61,10 @@ export const annotated: Machine<State, Msg, Save, Sub<never>, NoCtx> = {
 // would go unused.
 
 export const typesForm = defineMachine({
-  // @ts-expect-error — a machine carries no handlers; pass them to `run`
   types: { model: {} as State, msg: {} as Msg, cmd: {} as Save },
   init: () => [{ n: 0 }, []],
   update,
+  // @ts-expect-error — a machine carries no handlers; pass them to `run`
   interpret,
 });
 
@@ -74,7 +74,6 @@ const lookup = Cmd.define("lookup", {
   err: ["not_found"],
 });
 export const cmdsForm = defineMachine({
-  // @ts-expect-error — a machine carries no handlers; pass them to `run`
   types: { model: {} as State, msg: {} as Msg },
   cmds: [lookup],
   init: () => [{ n: 0 }, []],
@@ -84,6 +83,7 @@ export const cmdsForm = defineMachine({
     lookup_ok: (s) => [s, []],
     lookup_err: (s) => [s, []],
   },
+  // @ts-expect-error — a machine carries no handlers; pass them to `run`
   interpret: { lookup: async () => ({ _tag: "Ok", value: { name: "x" } }) },
 });
 

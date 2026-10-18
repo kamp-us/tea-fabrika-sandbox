@@ -1227,19 +1227,6 @@ export function defineMachine<
     readonly cmds: readonly D[];
   },
 ): Machine<S, M | Settled<D>, CmdOf<D>, U, Ctx>;
-// `types` without `cmds` — `C` comes from `types.cmd`.
-export function defineMachine<
-  S,
-  M extends { type: string },
-  C extends Cmd = Cmd<never>,
-  U extends Sub = Sub<never>,
-  Ctx = unknown,
->(
-  m: NoInfer<Machine<S, M, C, U, Ctx>> & {
-    readonly types: MachineTypes<S, M, C, U, Ctx>;
-  },
-): Machine<S, M, C, U, Ctx>;
-
 // `cmds`-form overloads — the machine names its typed Cmd constructors
 // (`Cmd.define`) and the effect half of its shape is DERIVED (ADR 0014): `C` is
 // the union of the values the defs build, and `M` is the user's own Msg union
@@ -1258,6 +1245,7 @@ export function defineMachine<
   Ctx,
 >(
   m: Omit<Machine<S, M | Settled<D>, CmdOf<D>, U, Ctx>, "update" | "cmds"> & {
+    readonly types?: never;
     readonly cmds: readonly D[];
     update: [S] extends [{ type: string }]
       ? Transitions<S, M | Settled<D>, CmdOf<D>>
@@ -1272,6 +1260,7 @@ export function defineMachine<
   Ctx,
 >(
   m: Omit<Machine<S, M | Settled<D>, CmdOf<D>, U, Ctx>, "update" | "cmds"> & {
+    readonly types?: never;
     readonly cmds: readonly D[];
     update: Reducer<S, M | Settled<D>, CmdOf<D>>;
   },
@@ -1290,6 +1279,7 @@ export function defineMachine<
   Ctx,
 >(
   m: Omit<Machine<S, M, C, U, Ctx>, "update"> & {
+    readonly types?: never;
     // `[S]` tuple-wrap disables distributive conditional behavior — see
     // the comment on `Machine.update` for why distribution is wrong here.
     update: [S] extends [{ type: string }] ? Transitions<S, M, C> : never;
@@ -1304,9 +1294,45 @@ export function defineMachine<
   Ctx,
 >(
   m: Omit<Machine<S, M, C, U, Ctx>, "update"> & {
+    readonly types?: never;
     update: Reducer<S, M, C>;
   },
 ): Machine<S, M, C, U, Ctx>;
+// `types` without `cmds` — `C` comes from `types.cmd`.
+//
+// Declared LAST, after the overloads above, for the error an author reads
+// (#643). When no overload matches, tsc prints only the last overload's
+// failure. When this was the plain `Reducer` overload, which knows nothing of
+// `types` or `cmds`, an inline record that left a cell out read "No overload
+// matches this call … not assignable to type 'never'" on cells that were fine,
+// and never named the missing one. Here the failure is `Property '<cell>' is
+// missing`.
+//
+// So that it can name a missing SETTLE cell too, this overload derives the
+// settled half of `M` and the Cmds of `C` from `cmds` exactly as the first one
+// does, through the trailing `D` (default `never`: no `cmds`, nothing
+// derived, the overload as it was). Its other slots and their order are
+// unchanged, so `defineMachine<S, M, C, U, Ctx>` reads as before.
+//
+// The `types` + `cmds` overload stays FIRST: a cell that is not
+// context-sensitive (`(m: Model) => …`, `() => …`) has its return type fixed by
+// the first overload that checks it. And the four overloads above carry
+// `types?: never` so a `types` call fails them before tsc gives its cells'
+// parameters a type: had one got that far, the parameters would be typed
+// against the wrong Model (or as an implicit `any`) for every later check.
+export function defineMachine<
+  S,
+  M extends { type: string },
+  C extends Cmd = Cmd<never>,
+  U extends Sub = Sub<never>,
+  Ctx = unknown,
+  D extends AnyCmdDef = never,
+>(
+  m: NoInfer<Omit<Machine<S, M | Settled<D>, C | CmdOf<D>, U, Ctx>, "cmds">> & {
+    readonly types: MachineTypes<S, M, C, U, Ctx>;
+    readonly cmds?: readonly D[];
+  },
+): Machine<S, M | Settled<D>, C | CmdOf<D>, U, Ctx>;
 // Implementation signature — accepts both via the union on `Machine.update`.
 export function defineMachine<
   S,

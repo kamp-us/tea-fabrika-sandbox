@@ -144,11 +144,10 @@ export const overrideBeside = run(ticking, {
 // ── a `subs` entry is checked against its Sub variant ──────────────────────
 //
 // With every overload refusing the literal, TS reports the call against the
-// LAST overload it tried, at its first property — so each directive below
-// sits on `types`. What it proves is the call as a whole: were the entry
+// LAST overload it tried — a `types` one (#643) — at the entry it cannot take,
+// so each directive below sits on `subs`. What it proves is the call as a whole: were the entry
 // accepted, the call would resolve and the directive would go unused.
 export const wrongDeps = defineMachine({
-  // @ts-expect-error — `tick`'s deps are `{ every: number }`, not a string
   types: {
     model: {} as State,
     msg: {} as Msg,
@@ -157,14 +156,15 @@ export const wrongDeps = defineMachine({
   },
   init: () => [{ count: 0 }, []],
   update,
+  // @ts-expect-error — `tick`'s deps are `{ every: number }`, not a string
   subs: [{ type: "tick", deps: () => "every-second" }],
 });
 
 export const undeclaredType = defineMachine({
-  // @ts-expect-error — `poll` is not a declared (or built-in) Sub type
   types: { model: {} as State, msg: {} as Msg, ctx: {} as NoCtx },
   init: () => [{ count: 0 }, []],
   update,
+  // @ts-expect-error — `poll` is not a declared (or built-in) Sub type
   subs: [{ type: "poll", deps: () => ({ every: 1 }) }],
 });
 
