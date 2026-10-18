@@ -143,7 +143,9 @@ export function __resetPortRegistry(): void {
  *   mint (`OutcomeContractError`, `AsyncSchemaError`). No `_err` Msg is
  *   dispatched, and the dispatch that emitted the Cmd still resolves.
  * - `"stop-save"` — the final `store.save(state)` inside `stop()` threw
- *   (`stop()` resolves regardless, so without the sink this was silent loss).
+ *   (`stop()` resolves regardless, so without the sink this was silent loss),
+ *   or had not settled at `disposeTimeoutMs` and was given up on
+ *   (`FinalSaveTimeoutNotice`).
  * - `"reduce"` — the pure `update` (reducer) threw synchronously; the configured
  *   `Supervision` strategy decides what happens next, but the throw is surfaced
  *   here as data first.
@@ -490,6 +492,33 @@ export class DrainTimeoutNotice extends RuntimeDiscardNotice {
         `behind them are dropped. No store call starts after stop() has ` +
         `returned; one already under way can still land. Bound the ` +
         `handler's own IO so it returns, or raise run({ disposeTimeoutMs }).`,
+    );
+  }
+}
+
+/**
+ * Reported to the `OnError` sink under `phase: "stop-save"` when `stop()`'s
+ * final `store.save(state)` has not settled at `disposeTimeoutMs` (ADR 0025).
+ * It is the third of `stop()`'s waits, after the queue (`DrainTimeoutNotice`)
+ * and the async teardown (`DisposeTimeoutNotice`).
+ *
+ * `stop()` resolves by contract, so a store that has stopped answering cannot
+ * keep the host from shutting down: `stop()` gives up on the save, reports
+ * this and returns. The save it gave up on is not cancelled — a Promise cannot
+ * be — so it may still land after `stop()` has returned, and if it rejects
+ * later that rejection is reported under `"stop-save"` too. tea starts no
+ * store call after `stop()` has returned. Until it lands, the final State may
+ * not be in the store.
+ */
+export class FinalSaveTimeoutNotice extends RuntimeDiscardNotice {
+  override readonly name = "FinalSaveTimeoutNotice";
+  readonly _tag = "FinalSaveTimeoutNotice" as const;
+  constructor(public readonly timeoutMs: number) {
+    super(
+      `@demlik/tea: stop() gave up waiting for the final store.save() after ` +
+        `${timeoutMs}ms — the last State may not have been saved, and the ` +
+        `save can still land after stop() has returned. Check the store, ` +
+        `bound its own IO, or raise run({ disposeTimeoutMs }).`,
     );
   }
 }

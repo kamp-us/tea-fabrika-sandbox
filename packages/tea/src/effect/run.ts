@@ -202,10 +202,13 @@ export type EffectRunOptions<
     /** A fire-and-forget sink for every applied transition. */
     readonly telemetry?: TelemetrySink;
     /**
-     * How long `stop()` waits for the queue, and then for async teardown,
-     * before giving up on each. Defaults to 5_000ms. `stop()` interrupts every
-     * handler here, so the first wait ends early unless a handler cannot be
-     * interrupted.
+     * How long `stop()` waits for the queue, then for async teardown, and then
+     * for the final `store.save(state)`, before giving up on each. Defaults to
+     * 5_000ms. Three waits, each up to this limit, so `stop()` can take up to
+     * three times it. `stop()` interrupts every handler here, so the first
+     * wait ends early unless a handler cannot be interrupted. A final save
+     * given up on is reported as a `FinalSaveTimeoutNotice` under
+     * `"stop-save"`; closing the run's Scope goes through the same `stop()`.
      *
      * A store call is not interrupted. tea starts none after `stop()` has
      * returned, but one already under way when `stop()` gave up can finish
