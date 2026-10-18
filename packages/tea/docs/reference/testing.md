@@ -20,7 +20,7 @@ import { … } from "@demlik/tea/testing";
 | [`expectFinalState`](#expectFinalState) | Function | stable | Assert the final state after replaying `opts.msgs` equals `expected`. |
 | [`expectReplayDeterministic`](#expectReplayDeterministic) | Function | stable | Assert that replaying `opts.msgs` is a pure function of the Msg log: the final state and every emitted Cmd come out the same under two different global wall-clocks and RNG seeds. |
 | [`noopRuntime`](#noopRuntime) | Function | stable | Construct an inert `Runtime<S, M>` value. |
-| [`ReplayOpts`](#ReplayOpts) | Interface | stable | Shared options shape for every test assertion below. |
+| [`ReplayOpts`](#ReplayOpts) | Type | stable | Shared options shape for every test assertion below. |
 | [`stateFactory`](#stateFactory) | Function | stable | Build a typed phase-constructor API from per-phase defaults. |
 | [`StateFactoryAPI`](#StateFactoryAPI) | Type | stable | The API returned by `stateFactory`. |
 | [`StateFactoryDefaults`](#StateFactoryDefaults) | Type | stable | Defaults shape passed to `stateFactory`. |
@@ -202,11 +202,10 @@ function noopRuntime<S, M extends { type: string }>(
 ### `ReplayOpts`
 
 ```ts
-interface ReplayOpts<S, M, Ctx> {
-  readonly ctx: Ctx;
+type ReplayOpts<S, M, Ctx> = {
   readonly loaded?: S | null;
   readonly msgs: readonly M[];
-}
+} & CtxArg<Ctx>
 ```
 
 <a id="stateFactory"></a>

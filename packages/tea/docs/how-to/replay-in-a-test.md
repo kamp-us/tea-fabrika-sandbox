@@ -8,8 +8,9 @@ so a replay test is pure, synchronous, and deterministic.
 
 ## 1. Replay the messages directly
 
-Hand `replay` the machine, the message list, and the `ctx` your `init` expects.
-It returns the final `state`, the `cmds` that would have been emitted, and the
+Hand `replay` the machine and the message list, plus the `ctx` your `init`
+expects if it reads one (a machine with no outside dependencies, like this one,
+needs none). It returns the final `state`, the `cmds` that would have been emitted, and the
 `subs` that would be running at the end, each as its runner would see it
 (`{ id, type, deps }`):
 
@@ -23,7 +24,7 @@ const msgs: Msg[] = [
   { type: "chunk", size: 1 },
 ];
 
-const { state, cmds } = replay(downloader, { msgs, ctx: undefined });
+const { state, cmds } = replay(downloader, { msgs });
 
 expect(state.phase).toBe("done");
 expect(cmds).toEqual([]); // this machine emits no effects
@@ -43,7 +44,7 @@ import { expectCmdEmitted, expectFinalState } from "@demlik/tea/testing";
 
 expectFinalState(
   downloader,
-  { msgs, ctx: undefined },
+  { msgs },
   { phase: "done", received: 3, total: 3 },
 );
 

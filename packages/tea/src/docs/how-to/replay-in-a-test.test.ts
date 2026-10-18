@@ -30,7 +30,7 @@ const msgs: Msg[] = [
   { type: "chunk", size: 1 },
 ];
 
-const { state, cmds } = replay(downloader, { msgs, ctx: undefined });
+const { state, cmds } = replay(downloader, { msgs });
 
 expect(state.phase).toBe("done");
 expect(cmds).toEqual([]); // this machine emits no effects
@@ -41,7 +41,7 @@ import { expectCmdEmitted, expectFinalState } from "@demlik/tea/testing";
 
 expectFinalState(
   downloader,
-  { msgs, ctx: undefined },
+  { msgs },
   { phase: "done", received: 3, total: 3 },
 );
 
@@ -62,6 +62,6 @@ describe("docs/how-to/replay-in-a-test.md — it runs", () => {
     await runtime.stop();
 
     expect(live).toEqual(state);
-    expectFinalState(downloader, { msgs, ctx: undefined }, live);
+    expectFinalState(downloader, { msgs }, live);
   });
 });
