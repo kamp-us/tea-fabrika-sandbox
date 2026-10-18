@@ -50,6 +50,7 @@ import {
   DispatchDiscardedError,
   DisposeTimeoutNotice,
   DrainTimeoutNotice,
+  FinalSaveTimeoutNotice,
   QuiescenceTimeoutError,
   RuntimeDiscardedError,
   RuntimeDiscardNotice,
@@ -386,10 +387,10 @@ export function startLoop<S, M extends { type: string }, C, Ctx>(
   }
 
   /**
-   * Wait for `work`, for at most `disposeTimeoutMs`. The one bound both of
-   * `stop()`'s waits share: `stop()` resolves regardless (contract), so neither
-   * a handler nor a release that never settles may become a host that never
-   * shuts down (ADR 0025).
+   * Wait for `work`, for at most `disposeTimeoutMs`. The one bound all three
+   * of `stop()`'s waits share: `stop()` resolves regardless (contract), so no
+   * handler, release or final save that never settles may become a host that
+   * never shuts down (ADR 0025).
    */
   async function withinLimit(
     work: Promise<unknown>,
@@ -783,15 +784,27 @@ export function startLoop<S, M extends { type: string }, C, Ctx>(
     // …then WAIT for the teardown still settling, up to the same limit (see
     // `drainDisposals`).
     await drainDisposals();
-    // Flush final State. A save throw does not reject `stop()` (contract:
-    // resolves regardless) but IS loss of the last write, so it reaches the
-    // sink (invariant 6).
+    // Flush final State, up to the same limit: the third wait (ADR 0025). A
+    // save throw does not reject `stop()` (contract: resolves regardless) but
+    // IS loss of the last write, so it reaches the sink (invariant 6).
     if (store && state !== undefined && bootError === null) {
-      try {
-        await store.save(state);
-      } catch (error) {
-        report(error, "stop-save");
-      }
+      await finalSave(store, state);
+    }
+  }
+
+  /**
+   * The final save, for at most `disposeTimeoutMs`. A rejection is reported
+   * under `"stop-save"`; a save that has not settled at the limit is given up
+   * on and reported as a `FinalSaveTimeoutNotice`. A save given up on is not
+   * recalled — a Promise cannot be cancelled — so it may still land after
+   * `stop()` has returned (#656), and tea starts no store call after it.
+   */
+  async function finalSave(target: Store<S>, final: S): Promise<void> {
+    const saving = (async () => target.save(final))().catch((error) => {
+      report(error, "stop-save");
+    });
+    if ((await withinLimit(saving)) === "timeout") {
+      report(new FinalSaveTimeoutNotice(disposeTimeoutMs), "stop-save");
     }
   }
 

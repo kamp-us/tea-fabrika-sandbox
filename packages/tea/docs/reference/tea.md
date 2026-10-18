@@ -8,7 +8,7 @@ Tier: `stable`
 import { … } from "@demlik/tea";
 ```
 
-## Exports (158)
+## Exports (159)
 
 | Symbol | Kind | Tier | Summary |
 | --- | --- | --- | --- |
@@ -60,6 +60,7 @@ import { … } from "@demlik/tea";
 | [`ExhaustiveTransitions`](#ExhaustiveTransitions) | Type | stable | `Transitions<S, M, C>` with every cell REQUIRED — the opt-in floor for a machine that wants the compiler to force a decision on every (state, message) pair. |
 | [`FencedRead`](#FencedRead) | Interface | stable | What a fenced store's `loadFenced` returns: the raw saved value and the version it was written at. |
 | [`FencedStore`](#FencedStore) | Interface | stable | A `Store<S>` that can refuse a second live writer. |
+| [`FinalSaveTimeoutNotice`](#FinalSaveTimeoutNotice) | Class | stable | Reported to the `OnError` sink under `phase: "stop-save"` when `stop()`'s final `store.save(state)` has not settled at `disposeTimeoutMs` (ADR 0025). |
 | [`foldMsgs`](#foldMsgs) | Function | stable | Fold a machine's `update` over a list of Msgs from a base state and return only the final state. |
 | [`FoldRefusal`](#FoldRefusal) | Interface | stable | The refusal `tryFoldMsgs` reports: WHICH msg in the log had no handler, where. |
 | [`foldUpdates`](#foldUpdates) | Function | stable | Fold a machine's `update` over a list of Msgs from a starting state, and return the final state with every Cmd the cells emitted. |
@@ -993,6 +994,19 @@ interface FencedStore<S> extends Store<S> {
    * Throws StoreConflictError when it is not.
    */
   saveFenced(state: S, expectedVersion: number): Promise<number>;
+}
+```
+
+<a id="FinalSaveTimeoutNotice"></a>
+
+### `FinalSaveTimeoutNotice`
+
+```ts
+class FinalSaveTimeoutNotice extends RuntimeDiscardNotice {
+  constructor(timeoutMs: number);
+  readonly _tag: "FinalSaveTimeoutNotice";
+  readonly name: "FinalSaveTimeoutNotice";
+  readonly timeoutMs: number;
 }
 ```
 

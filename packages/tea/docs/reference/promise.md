@@ -76,21 +76,25 @@ function run<
     clock?: () => number;
     /**
      * How long `stop()` waits for work it cannot interrupt before giving up
-     * on it. Defaults to 5_000ms. It bounds two waits, one after the other:
-     * the queue, where a Cmd handler may still be running, and then the
-     * teardown work that returned a Promise (an async `release` in
-     * `defineManagedResource`, an async Sub cleanup).
+     * on it. Defaults to 5_000ms. It bounds three waits, one after the
+     * other, each up to this limit: the queue, where a Cmd handler may still
+     * be running; the teardown work that returned a Promise (an async
+     * `release` in `defineManagedResource`, an async Sub cleanup); and the
+     * final `store.save(state)`. So `stop()` can take up to three times
+     * this limit.
      *
      * `stop()` awaits those disposals so a host doing
      * `await runtime.stop(); env.evict()` cannot drop the isolate mid-release —
      * the leak the managed-resource battery exists to prevent, relocated to
      * shutdown. The bound is what keeps a handler that never returns, or a
-     * release that never settles, from hanging the host: on expiry `stop()`
-     * reports a `DrainTimeoutNotice` or a `DisposeTimeoutNotice` (warn-only,
-     * like every `RuntimeDiscardNotice`) and resolves anyway, because `stop()`
-     * resolving is a contract (ADR 0025). The Subs are still stopped and the
-     * final save still runs. A handler `stop()` gave up on keeps running;
-     * what it returns later is dropped.
+     * release that never settles, or a store that has stopped answering,
+     * from hanging the host: on expiry `stop()` reports a
+     * `DrainTimeoutNotice`, a `DisposeTimeoutNotice` or a
+     * `FinalSaveTimeoutNotice` (warn-only, like every `RuntimeDiscardNotice`)
+     * and resolves anyway, because `stop()` resolving is a contract (ADR
+     * 0025). The Subs are still stopped and the final save still runs. A
+     * handler `stop()` gave up on keeps running; what it returns later is
+     * dropped.
      *
      * tea starts no store call after `stop()` has returned. A store call
      * already under way when `stop()` gave up is not cancelled and can

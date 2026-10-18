@@ -45,7 +45,7 @@ and the Consequences below carry that narrowing.
 - `stop()` waits for the queue for at most `disposeTimeoutMs`. No new option sets that limit.
 - When the limit passes, `stop()` reports a `DrainTimeoutNotice` to `onError` under
   `phase: "discard"`. It names the Cmd of each handler still running. Then `stop()` stops the Subs,
-  runs the final save and returns.
+  runs the final save, up to the same limit, and returns.
 - Work that turns up after `stop()` gave up is dropped: what the stuck handler returns later, the
   next Cmd of its step, and the Msgs already queued behind it. Each dropped Msg is a
   `DispatchDiscardedError`. No further handler starts.
@@ -83,10 +83,14 @@ What `stop()` promises on each engine when a Cmd handler never returns:
   ([ADR 0017](./0017-fencing-is-an-optional-store-widening.md)). So a host that starts a new run on
   the same store after a `stop()` that gave up needs a fenced store. No option is added to the
   store contract for this.
-- `stop()` makes two waits, one after the other: the queue, then the teardown work that returned a
-  Promise. Each is bounded by `disposeTimeoutMs`, so the worst case before the final save is twice
-  that limit.
-- The final save itself has no limit. The ruling does not cover a store whose `save` never returns.
+- `stop()` makes three waits, one after the other, each up to `disposeTimeoutMs`: the queue, then
+  the teardown work that returned a Promise, then the final save. So the worst case is three times
+  that limit. One shared limit for the whole `stop()` would be a new decision
+  ([#672](https://github.com/kamp-us/demlik/issues/672)).
+- The final save gets the same limit, so a store whose `save` never returns cannot keep `stop()`
+  from returning ([#670](https://github.com/kamp-us/demlik/issues/670)). When the limit passes,
+  `stop()` reports a `FinalSaveTimeoutNotice` to `onError` under `phase: "stop-save"` and returns.
+  The save it gave up on is a store call already under way: it is not cancelled and can still land.
 - A dispatch a caller sent before `stop()` and that was still queued behind the stuck handler
   rejects with `DispatchDiscardedError` when its turn comes. If the handler never returns, that
   dispatch never settles.
