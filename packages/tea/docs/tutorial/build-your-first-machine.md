@@ -181,12 +181,9 @@ const msgs: Msg[] = [
   { type: "chunk", size: 1 },
 ];
 
-const { state } = replay(downloader, { msgs, ctx: undefined });
+const { state } = replay(downloader, { msgs });
 console.log(state.phase); // "done" — the exact same terminal Model
 ```
-
-`replay` asks for a `ctx`, the value a machine reads its outside dependencies
-from. This machine has none, so you pass `undefined`.
 
 Run the file again:
 

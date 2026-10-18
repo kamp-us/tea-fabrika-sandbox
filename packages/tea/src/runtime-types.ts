@@ -1341,7 +1341,8 @@ export type CtxArg<Ctx> = [Record<never, never>] extends [Ctx]
  * Cmds emitted, and the Subs that would be running.
  *
  * It composes `init(loaded ?? null, ctx)` and then `update(state, msg)` for each
- * Msg. No Cmd handler is called, no `Store` is touched and no Sub is started.
+ * Msg. `ctx` is optional for a machine whose `Ctx` is empty (see `CtxArg`); an
+ * omitted `ctx` reaches `init` as `{}`, as it does under `run`. No Cmd handler is called, no `Store` is touched and no Sub is started.
  *
  * `subs` is each `machine.subs` entry that is on at the final state, as its
  * runner would see it: `{ id, type, deps }`, the id derived exactly as the
@@ -1356,7 +1357,7 @@ export function replay<
   Ctx,
 >(
   machine: Machine<S, M, C, U, Ctx>,
-  opts: { msgs: readonly M[]; ctx: Ctx; loaded?: S | null },
+  opts: { msgs: readonly M[]; loaded?: S | null } & CtxArg<Ctx>,
 ): {
   state: S;
   cmds: C[];
@@ -1365,7 +1366,10 @@ export function replay<
   // Coerce undefined → null so `replay` with `loaded: undefined` calls
   // `init(null, ctx)`.
   const loaded = opts.loaded ?? null;
-  const [initialState, initCmds] = machine.init(loaded, opts.ctx);
+  // An omitted `ctx` (allowed by `CtxArg` for a pure machine) defaults to `{}`,
+  // the same default `run` uses.
+  const ctx = ((opts as { ctx?: Ctx }).ctx ?? {}) as Ctx;
+  const [initialState, initCmds] = machine.init(loaded, ctx);
 
   if (loaded !== null && initCmds.length > 0) {
     throw new Error(

@@ -1845,11 +1845,7 @@ function replay<
   Ctx,
 >(
   machine: Machine<S, M, C, U, Ctx>,
-  opts: {
-    ctx: Ctx;
-    loaded?: S | null;
-    msgs: readonly M[];
-  },
+  opts: { loaded?: S | null; msgs: readonly M[] } & CtxArg<Ctx>,
 ): {
   cmds: C[];
   state: S;

@@ -23,7 +23,13 @@
 // ---------------------------------------------------------------------------
 
 import { expect } from "vitest";
-import { type Cmd, type Machine, replay, type Sub } from "../index";
+import {
+  type Cmd,
+  type CtxArg,
+  type Machine,
+  replay,
+  type Sub,
+} from "../index";
 
 // `NoInfer<T>` is the built-in TypeScript 5.4+ intrinsic that blocks
 // inference from a generic parameter at a position. We use it on `expected`
@@ -34,14 +40,14 @@ import { type Cmd, type Machine, replay, type Sub } from "../index";
  * Shared options shape for every test assertion below. Mirrors the
  * second argument of `replay(machine, opts)` — `msgs` is the sequence to
  * fold over (may be empty for init-only assertions), `ctx` is the
- * substrate-required ctx value, `loaded` is the optional pre-`init`
+ * ctx value `init` reads (optional for a machine whose `Ctx` is empty, see
+ * `CtxArg`; omitted, it defaults to `{}`), `loaded` is the optional pre-`init`
  * snapshot (omit / pass `null` for fresh boot).
  */
-export interface ReplayOpts<S, M, Ctx> {
+export type ReplayOpts<S, M, Ctx> = {
   readonly msgs: readonly M[];
-  readonly ctx: Ctx;
   readonly loaded?: S | null;
-}
+} & CtxArg<Ctx>;
 
 /**
  * Assert the final state after replaying `opts.msgs` equals `expected`.
