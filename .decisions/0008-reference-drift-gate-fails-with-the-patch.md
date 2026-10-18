@@ -10,6 +10,11 @@ tags: []
 
 **Scope:** packages/tea (reference drift gate, CI)
 
+**Amended in part by the tea docs sweep (#548):** `docs:reference:check` now runs
+a stray-file step first, and one suite test reads the committed `docs/reference/`
+directory. Decision points 1 and 2 stand as amended — see
+[Amendments](#amendments).
+
 ## Context
 
 ADR 0007 committed the generated reference (`packages/tea/docs/reference/`) to
@@ -34,13 +39,16 @@ files; the fix — *which* line, *why* — had to be reverse-engineered by hand.
    regenerates the pages from the live source, then `git diff --exit-code`
    **prints the exact unified diff and exits non-zero**. The failure output *is*
    the fix — the author reads the patch, runs `pnpm --filter @demlik/tea
-   docs:reference`, and commits. No filenames-only guessing.
+   docs:reference`, and commits. No filenames-only guessing. *(Amended by #548:
+   a stray-file step now runs first — see [Amendments](#amendments).)*
 
 2. **Single-sourced (one concern, one gate).** The committed-match assertion is
    removed from the vitest suite. Vitest keeps only the *mechanism* proofs — the
    guard fires when a page is tampered, every curated subpath is a real
    `package.json` export, page filenames are unique. Whether the *committed*
-   pages match source is owned solely by `docs:reference:check`.
+   pages match source is owned solely by `docs:reference:check`. *(Amended by
+   #548: one named suite test reads the committed directory for extra files —
+   see [Amendments](#amendments).)*
 
 3. **Runs before `Run tests`.** The CI step sits right after Lint, so the patch
    surfaces before any coarser failure can mask it.
@@ -82,3 +90,42 @@ files; the fix — *which* line, *why* — had to be reverse-engineered by hand.
 - The reference stays committed and browsable in-repo and on GitHub.
 - The cost is one command (`docs:reference`) whenever a contributor changes tea's
   public surface — a cost that scales with how often the public API churns.
+
+## Amendments
+
+- **#548 — decision points 1 and 2: the gate gains a stray-file step, and one
+  suite test reads the committed directory. Landed in the tea docs sweep,
+  https://github.com/kamp-us/demlik/pull/553.**
+
+  `docs:reference:check` (`packages/tea/package.json`) now runs three steps, in
+  this order:
+
+  ```
+  pnpm run docs:reference:strays && pnpm run docs:reference && git diff --exit-code -- docs/reference
+  ```
+
+  1. `pnpm run docs:reference:strays` — `vitest run
+     src/docs/reference/generate-reference.test.ts -t 'holds nothing the
+     generator does not write'`: fails if `docs/reference/` holds any file the
+     generator does not write.
+  2. `pnpm run docs:reference` — regenerates the pages from the live source.
+  3. `git diff --exit-code -- docs/reference` — prints the patch and exits
+     non-zero on drift, as decision point 1 describes.
+
+  **Why the stray step exists.** `git diff --exit-code` only sees tracked
+  files. An untracked page in `docs/reference/` — for example one left behind
+  after an export was removed — produced no diff, so it slipped past the
+  two-step gate.
+
+  **Why it runs first.** The writer (`docs:reference`) deletes strays when it
+  regenerates, so after step 2 there is nothing left to find. The stray check
+  must run before regeneration to see the committed directory as it is.
+
+  **Decision point 2's one named exception.** The test
+  `docs/reference/ holds nothing the generator does not write` in
+  `packages/tea/src/docs/reference/generate-reference.test.ts` is the one suite
+  test that reads the real committed `docs/reference/` directory, and it runs in
+  the normal test run as well as in step 1. It checks for extra files only.
+  Whether the committed page *content* matches source is still owned by
+  `docs:reference:check` alone. Do not delete this test: without it, a stray
+  page reopens the gap the stray step closes.
