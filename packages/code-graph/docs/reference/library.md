@@ -124,7 +124,7 @@ Source: [resolver](../../src/resolve.ts).
 |---|---|
 | `readPublishedApi(root, map, options?)` | `Promise<PublishedApi>`: per subpath, every published name with its text and references |
 | `diffPublishedApi(root, map, base, options?)` | `Promise<ApiDiff>`: per subpath, the names added, removed and changed against the commit `base` names |
-| `readChangesetsSince(root, base, options?)` | `ChangesetsSince`: the package's name and its changesets added since the commit `base` names |
+| `readChangesetsSince(root, base, options?)` | `ChangesetsSince`: the package's name and its changesets added since the merge base of `base` and `HEAD` (files the working tree has and the merge base's tree lacks); no merge base throws `ApiInputError` (exit 2 in the CLI) |
 | `ratchetApiDiff(diff, policy, changesets)` | `ApiRatchetVerdict`: the changes that miss the bump the policy asks for; pure, no I/O |
 | `ApiMapSchema`, `BumpPolicySchema` | The zod schemas an API map and a bump policy are parsed through |
 | `ApiInputError` | Thrown for every input the CLI refuses with exit 2, with the same message |
@@ -195,7 +195,8 @@ file that counts, with `file` repo-relative, `bump` one of `major`, `minor`
 and `patch`, and `body` the text after the frontmatter. The
 [CLI reference](cli.md#published-api) says which files count. `options` is
 `{ repoRoot? }`, the folder that holds `.changeset/`, defaulting to
-`findRepoRoot(root)`. A `package.json` with no `name`, or a changeset whose
+`findRepoRoot(root)`. A `package.json` with no `name`, a `base` that has no
+merge base with `HEAD`, or a changeset whose
 frontmatter does not parse, throws `ApiInputError`.
 
 `ratchetApiDiff(diff, policy, changesets)` judges a diff and reads nothing but

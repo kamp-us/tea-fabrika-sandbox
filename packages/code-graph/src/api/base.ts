@@ -5,7 +5,7 @@ import path from "node:path";
 import { ApiInputError } from "./map.js";
 
 // The git repository that holds a package (SPEC §13.4). Every git command here only reads:
-// `rev-parse`, `archive` and `ls-tree`. Nothing writes the checkout's files, index or refs.
+// `rev-parse`, `archive`, `ls-tree` and `merge-base`. Nothing writes the checkout's files, index or refs.
 export type Checkout = {
   readonly top: string;
   // The package root, relative to `top`.
@@ -36,6 +36,18 @@ export function resolveBase(checkout: Checkout, rev: string): string {
   if (run.error !== undefined || run.status !== 0) {
     throw new ApiInputError(
       `base rev "${rev}" does not resolve to a commit in ${checkout.top} (in CI, fetch it first)`,
+    );
+  }
+  return run.stdout.trim();
+}
+
+// The merge base of the commit `sha` (which `rev` names) and `HEAD`: `git merge-base <sha> HEAD`.
+// `ApiInputError` when git finds none (a shallow clone, unrelated histories); never a fallback.
+export function mergeBaseWithHead(checkout: Checkout, rev: string, sha: string): string {
+  const run = gitRead(checkout.top, ["merge-base", sha, "HEAD"]);
+  if (run.error !== undefined || run.status !== 0) {
+    throw new ApiInputError(
+      `base rev "${rev}" has no merge base with HEAD in ${checkout.top}; fetch more history (in CI, fetch the base and the branch deep enough to share a commit, or the full history)`,
     );
   }
   return run.stdout.trim();

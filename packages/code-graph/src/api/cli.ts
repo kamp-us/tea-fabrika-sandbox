@@ -66,7 +66,7 @@ async function ratchet(
 ): Promise<ApiOutcome> {
   const policy = bumpPolicy(readJsonFile(policyFile, "bump policy"));
   const diff = await diffPublishedApi(run.rootAbsolute, map, base);
-  const verdict = ratchetApiDiff(diff, policy, readChangesetsSince(run.rootAbsolute, diff.base));
+  const verdict = ratchetApiDiff(diff, policy, readChangesetsSince(run.rootAbsolute, base));
   const payload = run.json
     ? `${stableStringify(verdict, run.pretty)}\n`
     : renderApiRatchet(verdict, { changes: apiChanges(diff).length, callout: policy.callout });

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { findRepoRoot } from "../../extract/project.js";
-import { checkoutOf, namesAtBase, resolveBase } from "../base.js";
+import { checkoutOf, mergeBaseWithHead, namesAtBase, resolveBase } from "../base.js";
 import { ApiInputError } from "../map.js";
 import { packageRoot } from "../view.js";
 import type { Bump } from "./policy.js";
@@ -87,9 +87,12 @@ function countedChangeset(repoRoot: string, file: string, named: string): readon
 }
 
 // The changesets that count for the package at `root` since the commit `base` names (SPEC §13.5):
-// the `.md` files in the repo root's `.changeset/` that the working tree has, the base commit's
-// tree lacks, and whose frontmatter gives the package a `major`, `minor` or `patch` bump. It only
-// reads: the working tree's files, and `git ls-tree` on the base.
+// the `.md` files in the repo root's `.changeset/` that the working tree has, the tree of the
+// merge base of `base` and `HEAD` lacks, and whose frontmatter gives the package a `major`,
+// `minor` or `patch` bump. Comparing against the merge base, not the base commit, keeps a branch
+// that is behind its base from counting changesets the base has since released and deleted. No
+// merge base throws `ApiInputError`. It only reads: the working tree's files, `git merge-base`
+// and `git ls-tree` on the merge base.
 export function readChangesetsSince(
   root: string,
   base: string,
@@ -98,8 +101,10 @@ export function readChangesetsSince(
   const rootAbsolute = packageRoot(root);
   const named = packageName(rootAbsolute);
   const repoRoot = options.repoRoot ?? findRepoRoot(rootAbsolute);
-  const sha = resolveBase(checkoutOf(rootAbsolute), base);
-  const atBase = new Set(namesAtBase(repoRoot, sha, `${CHANGESET_DIR}/`));
+  const checkout = checkoutOf(rootAbsolute);
+  const sha = resolveBase(checkout, base);
+  const split = mergeBaseWithHead(checkout, base, sha);
+  const atBase = new Set(namesAtBase(repoRoot, split, `${CHANGESET_DIR}/`));
   const changesets = changesetFilesNow(repoRoot)
     .filter((file) => !atBase.has(file))
     .flatMap((file) => countedChangeset(repoRoot, file, named));

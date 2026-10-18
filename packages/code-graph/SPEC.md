@@ -555,7 +555,7 @@ With the map in §13.2, `code-graph packages/demo --api demo-api.json --pretty` 
 
 `code-graph <path> --api <map> --api-base <rev>`.
 
-**Reading the base.** `<rev>` resolves with `git rev-parse --verify <rev>^{commit}` in the repository that holds `<path>`. A rev that does not resolve exits 2. (In CI, fetch the base commit first: `actions/checkout` fetches one commit by default.) The base commit's whole tree is written from the repository's objects into a second temp folder, with `git archive <sha>` piped into `tar -x -C <temp>/base`, so a tsconfig `extends` that points outside the package still resolves. `<temp>/base/<path>/node_modules` and `<temp>/base/node_modules` are symlinks to the checkout's installed `<path>/node_modules` and repo-root `node_modules`, so the base resolves its dependencies against what is installed now. The view (§13.3) then runs on `<temp>/base/<path>` with the same map. The only git commands the mode runs are `rev-parse`, `archive` and `ls-tree` (§13.5), all of which only read. It never runs `checkout`, `switch`, `stash`, `worktree`, `reset`, `read-tree`, `update-ref` or any other command that writes the checkout's files, index or refs. The diff child's test asserts that `git status --porcelain`, the index and `HEAD` are the same before and after a run.
+**Reading the base.** `<rev>` resolves with `git rev-parse --verify <rev>^{commit}` in the repository that holds `<path>`. A rev that does not resolve exits 2. (In CI, fetch the base commit first: `actions/checkout` fetches one commit by default.) The base commit's whole tree is written from the repository's objects into a second temp folder, with `git archive <sha>` piped into `tar -x -C <temp>/base`, so a tsconfig `extends` that points outside the package still resolves. `<temp>/base/<path>/node_modules` and `<temp>/base/node_modules` are symlinks to the checkout's installed `<path>/node_modules` and repo-root `node_modules`, so the base resolves its dependencies against what is installed now. The view (§13.3) then runs on `<temp>/base/<path>` with the same map. The only git commands the mode runs are `rev-parse`, `archive`, `merge-base` and `ls-tree` (§13.5), all of which only read. It never runs `checkout`, `switch`, `stash`, `worktree`, `reset`, `read-tree`, `update-ref` or any other command that writes the checkout's files, index or refs. The diff child's test asserts that `git status --porcelain`, the index and `HEAD` are the same before and after a run.
 
 A subpath whose entry does not exist at the base has every name `added`. An entry missing now exits 2, as in the view.
 
@@ -684,8 +684,10 @@ Every subpath in the map is a key, including one with no change, and so is every
 
 1. It is a `.md` file directly in `.changeset/` and is not `README.md`.
 2. It exists in the checkout's working tree.
-3. It does not exist in the base commit's tree (`git ls-tree --name-only <sha> -- .changeset/`).
+3. It does not exist in the tree of the merge base of `<rev>` and `HEAD` (`git merge-base <sha> HEAD`, then `git ls-tree --name-only <merge-base> -- .changeset/`). A file added after the branch split from the base counts; a file the base released and deleted after the split, which a branch behind its base still holds, does not. When `<rev>` is an ancestor of `HEAD` (an up-to-date branch, or a merge-ref checkout with `HEAD^1`) the merge base is the base commit itself.
 4. Its frontmatter names the package, the `name` in `<path>/package.json`, with a bump of `major`, `minor` or `patch`.
+
+When git finds no merge base for `<rev>` and `HEAD` (a shallow clone that fetched too little history, or unrelated histories), the run exits 2 naming the rev and saying to fetch more history. It never falls back to the base commit's tree, which would count released changesets again.
 
 The frontmatter is the changesets format: a block between two `---` lines whose lines read `"<package>": <bump>`. A file whose frontmatter does not parse exits 2 naming it. The body is everything after the closing `---`. A missing `<path>/package.json`, or one with no `name`, exits 2.
 
@@ -799,7 +801,7 @@ the same run prints `"changesets": [".changeset/demo-options.md"]`, `"highestBum
 - an invalid map (§13.2) or policy (§13.5);
 - no tsconfig for `<path>`, tsgo failing to start, or an entry with no emitted file;
 - a base rev that does not resolve, or a failed `git archive`;
-- with `--api-policy`: no `name` in `<path>/package.json`, a changeset whose frontmatter does not parse, or a tier with no policy row and no `default`.
+- with `--api-policy`: a base rev with no merge base with `HEAD`, no `name` in `<path>/package.json`, a changeset whose frontmatter does not parse, or a tier with no policy row and no `default`.
 
 Exit 3 for any other error inside the run, on all three rows: one stderr line, `code-graph: unexpected error: <message>`, no stack trace and nothing on stdout. The emit's diagnostics warning (§13.3) is a line of its own and still comes first when tsgo reported any. An `--out` file that cannot be written is one of these and exits 3, not 2. So exit 1 always means a ratchet miss, never a crash.
 

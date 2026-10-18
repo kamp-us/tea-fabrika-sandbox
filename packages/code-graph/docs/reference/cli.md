@@ -147,11 +147,19 @@ policy and no default row:
 
 A changeset counts when it is a `.md` file directly in `.changeset/` at the
 repo root, is not `README.md`, exists in the working tree, does not exist in
-the base commit's tree, and its frontmatter gives the package (the `name` in
+the tree of the merge base of `<rev>` and `HEAD` (`git merge-base`), and its frontmatter gives the package (the `name` in
 `<directory>/package.json`) a `major`, `minor` or `patch` bump. A changeset
 for another package does not count. The highest bump among the counted files
 is the bump found, `none` when no file counts, and the callout is found when
 any counted file's body contains the marker.
+
+Counting from the merge base means a branch that is behind its base does not
+count the changesets the base has since released and deleted: only the files
+added since the branch split from the base count. When `<rev>` is an ancestor
+of `HEAD` (an up-to-date branch, or a merge-ref checkout with `HEAD^1`), the
+merge base is `<rev>` itself. When git finds no merge base (a shallow clone,
+or unrelated histories), the run exits 2 naming the rev and saying to fetch
+more history; it never falls back to the base commit's tree.
 
 A changed name misses when its rule's bump is above the bump found, or when
 its rule asks for the callout and none is found. A pass prints one line:
@@ -202,7 +210,8 @@ tsconfig, tsgo failing to start, or an entry with no emitted file. With
 repository, a rev that does not resolve to a commit, or a failed `git archive`.
 With `--api-policy`, also for `--api-policy` without `--api-base`, a policy
 that is not JSON or fails the schema (an unknown key, an empty `callout`, a
-row missing a change kind, a `bump` outside the four), a
+row missing a change kind, a `bump` outside the four), a base rev
+that has no merge base with `HEAD`, a
 `<directory>/package.json` that is missing or has no `name`, a changeset
 added since the base whose frontmatter does not parse, or a changed name whose
 tier has no row and no `default`.

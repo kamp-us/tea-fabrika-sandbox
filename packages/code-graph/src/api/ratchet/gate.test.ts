@@ -9,6 +9,7 @@ import {
   changeset,
   checkoutBranch,
   commitFiles,
+  FIXTURE,
   git,
   MAP_FILE,
   PACKAGE_NAME,
@@ -424,5 +425,115 @@ describe("code-graph --api-policy — refusals", () => {
     expect(run.stdout).toBe("");
     expect(fs.readFileSync(out, "utf8")).toContain("API RATCHET: legacy in . (stable) removed");
     expect(state()).toEqual(before);
+  });
+});
+
+describe("code-graph --api-policy — a branch behind its base (changesets count since the merge base)", () => {
+  let behind: RatchetRepo;
+  const released = {
+    "r1-a.md": bumped("minor"),
+    "r1-b.md": bumped("patch"),
+    "r2-major.md": bumped("major", true),
+    "r2-b.md": bumped("minor", true),
+    "r3-a.md": bumped("patch"),
+  };
+
+  beforeAll(() => {
+    behind = ratchetRepository();
+    scratch.push(behind.top);
+    // `main` gathers five changesets, then the branch is cut.
+    commitFiles(
+      behind,
+      Object.fromEntries(
+        Object.entries(released).map(([file, text]) => [`.changeset/${file}`, text]),
+      ),
+    );
+    git(behind.top, "branch", "feature");
+    // `main` ships three releases, each deleting the changesets it released.
+    const release = (version: string, files: readonly string[]) => {
+      for (const file of files) fs.rmSync(path.join(behind.top, ".changeset", file));
+      const manifest = path.join(behind.root, "package.json");
+      const json = JSON.parse(fs.readFileSync(manifest, "utf8")) as Record<string, unknown>;
+      fs.writeFileSync(manifest, `${JSON.stringify({ ...json, version }, null, 2)}\n`);
+      commitFiles(behind, {});
+    };
+    release("2.0.0", ["r1-a.md", "r1-b.md"]);
+    release("3.0.0", ["r2-major.md", "r2-b.md"]);
+    release("3.0.1", ["r3-a.md"]);
+    // The branch, still holding all five, removes a stable name with no changeset.
+    git(behind.top, "checkout", "--quiet", "feature");
+    fs.cpSync(path.join(FIXTURE, "branches", "stable-removed"), behind.root, { recursive: true });
+    commitFiles(behind, {});
+  });
+
+  it("counts none of the five changesets main has released, and fails the breaking change", () => {
+    for (const file of Object.keys(released)) {
+      expect(fs.existsSync(path.join(behind.top, ".changeset", file))).toBe(true);
+    }
+    const run = runGate(behind, ["--json"]);
+    expect(run.code).toBe(1);
+    expect(verdictOf(run.stdout)).toMatchObject({
+      passed: false,
+      changesets: [],
+      highestBump: "none",
+      calloutFound: false,
+    });
+    expect(named(verdictOf(run.stdout))).toEqual([
+      { row: "legacy in . (stable) removed", needs: { bump: "major", callout: true } },
+    ]);
+    expect(runGate(behind, ["--json"])).toEqual(run);
+  });
+
+  it("passes once the branch adds its own major changeset with the callout, counting only it", () => {
+    commitFiles(behind, { ".changeset/legacy-gone.md": bumped("major", true) });
+    const run = runGate(behind, ["--json"]);
+    expect(run.code).toBe(0);
+    expect(verdictOf(run.stdout)).toMatchObject({
+      passed: true,
+      changesets: [".changeset/legacy-gone.md"],
+      highestBump: "major",
+      calloutFound: true,
+    });
+    expect(runGate(behind, ["--json"])).toEqual(run);
+  });
+
+  it("counts the same files on the merge of the branch into main with HEAD^1 as the base", () => {
+    git(behind.top, "checkout", "--quiet", "--detach", "main");
+    git(behind.top, "merge", "--quiet", "--no-gpg-sign", "--no-edit", "feature");
+    const run = runCli([
+      behind.root,
+      "--api",
+      MAP_FILE,
+      "--api-base",
+      "HEAD^1",
+      "--api-policy",
+      POLICY_FILE,
+      "--json",
+    ]);
+    git(behind.top, "checkout", "--quiet", "feature");
+    expect(run.code).toBe(0);
+    expect(verdictOf(run.stdout)).toMatchObject({
+      changesets: [".changeset/legacy-gone.md"],
+      highestBump: "major",
+    });
+  });
+
+  it("exits 2 naming the rev when git finds no merge base, rather than comparing trees", () => {
+    git(behind.top, "checkout", "--quiet", "--orphan", "stray");
+    git(behind.top, "commit", "--quiet", "--no-gpg-sign", "-m", "stray");
+    git(behind.top, "checkout", "--quiet", "feature");
+    const refused = runCli([
+      behind.root,
+      "--api",
+      MAP_FILE,
+      "--api-base",
+      "stray",
+      "--api-policy",
+      POLICY_FILE,
+    ]);
+    expect(refused.code).toBe(2);
+    expect(refused.stdout).toBe("");
+    expect(refused.stderr).toContain('base rev "stray" has no merge base with HEAD');
+    expect(refused.stderr).toContain("fetch more history");
   });
 });
