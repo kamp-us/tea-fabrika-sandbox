@@ -166,12 +166,12 @@ const onlyUser: Reducer<Model, Msg, FetchCmd> = {
   go: (m) => [m, [fetch({ url: "/" })]],
 };
 defineMachine({
-  // A MISSING property is reported at the machine literal's first property, so
-  // the directive sits on `types` rather than on `update`.
-  // @ts-expect-error `fetch_ok` and `fetch_err` cells are missing
   types: { model: {} as Model, msg: {} as Msg, ctx: {} as NoCtx },
   cmds: [fetch],
   init: () => [{ body: null, lastTag: null }, []],
+  // The last overload reported is a `types` one (#643), so the MISSING
+  // property is reported on `update` itself.
+  // @ts-expect-error `fetch_ok` and `fetch_err` cells are missing
   update: onlyUser,
 });
 
