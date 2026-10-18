@@ -449,45 +449,68 @@ export interface DefineAgentConfig<T extends AnyToolDef> {
  * `CompactionPolicy` this is built from.
  */
 export type DefineAgentCompaction =
-  | (CompactionTriggers & {
+  // Both arms spell out every field (rather than sharing an unexported base)
+  // so the generated reference shows each field and its docs (#6).
+  | {
+      /**
+       * Fold once the conversation holds at least this many turns, counted
+       * BEFORE the brain call about to fire. Must be at least `1`.
+       */
       readonly afterTurns: number;
+      /**
+       * Fold once the latest context size — `inputTokens + outputTokens` the
+       * provider reported for the most recent brain turn — reaches this many
+       * tokens, checked BEFORE the brain call about to fire (#332). The number
+       * is yours: tea keeps no per-model window registry.
+       *
+       * A turn that reported no usage never fires it, and a fold clears the
+       * reading, so one reading folds at most once: the next fold waits for a
+       * turn to report what the shrunk transcript costs. It needs a `model`
+       * whose turns carry `usage`; with one that never reports it, this
+       * trigger never fires.
+       */
       readonly afterContextTokens?: number;
-    })
-  | (CompactionTriggers & {
+      /**
+       * How many of the NEWEST turns survive the fold intact, beside the
+       * summary. Everything older becomes the summary's one synthetic head
+       * turn. Omit → `0`: the whole transcript folds into the summary.
+       *
+       * A fold worth fewer than two turns is skipped by the agent itself — one
+       * turn replaced by one summary shrinks nothing — so `keepTurns` within
+       * one of `afterTurns` is a policy that never fires.
+       */
+      readonly keepTurns?: number;
+    }
+  | {
+      /**
+       * Fold once the conversation holds at least this many turns, counted
+       * BEFORE the brain call about to fire. Must be at least `1`.
+       */
       readonly afterTurns?: number;
+      /**
+       * Fold once the latest context size — `inputTokens + outputTokens` the
+       * provider reported for the most recent brain turn — reaches this many
+       * tokens, checked BEFORE the brain call about to fire (#332). The number
+       * is yours: tea keeps no per-model window registry.
+       *
+       * A turn that reported no usage never fires it, and a fold clears the
+       * reading, so one reading folds at most once: the next fold waits for a
+       * turn to report what the shrunk transcript costs. It needs a `model`
+       * whose turns carry `usage`; with one that never reports it, this
+       * trigger never fires.
+       */
       readonly afterContextTokens: number;
-    });
-
-/** The fields every {@link DefineAgentCompaction} arm shares. */
-interface CompactionTriggers {
-  /**
-   * Fold once the conversation holds at least this many turns, counted BEFORE
-   * the brain call about to fire. Must be at least `1`.
-   */
-  readonly afterTurns?: number;
-  /**
-   * Fold once the latest context size — `inputTokens + outputTokens` the
-   * provider reported for the most recent brain turn — reaches this many
-   * tokens, checked BEFORE the brain call about to fire (#332). The number is
-   * yours: tea keeps no per-model window registry.
-   *
-   * A turn that reported no usage never fires it, and a fold clears the
-   * reading, so one reading folds at most once: the next fold waits for a turn
-   * to report what the shrunk transcript costs. It needs a `model` whose turns
-   * carry `usage`; with one that never reports it, this trigger never fires.
-   */
-  readonly afterContextTokens?: number;
-  /**
-   * How many of the NEWEST turns survive the fold intact, beside the summary.
-   * Everything older becomes the summary's one synthetic head turn. Omit → `0`:
-   * the whole transcript folds into the summary.
-   *
-   * A fold worth fewer than two turns is skipped by the agent itself — one turn
-   * replaced by one summary shrinks nothing — so `keepTurns` within one of
-   * `afterTurns` is a policy that never fires.
-   */
-  readonly keepTurns?: number;
-}
+      /**
+       * How many of the NEWEST turns survive the fold intact, beside the
+       * summary. Everything older becomes the summary's one synthetic head
+       * turn. Omit → `0`: the whole transcript folds into the summary.
+       *
+       * A fold worth fewer than two turns is skipped by the agent itself — one
+       * turn replaced by one summary shrinks nothing — so `keepTurns` within
+       * one of `afterTurns` is a policy that never fires.
+       */
+      readonly keepTurns?: number;
+    };
 
 /**
  * Which call an `onToolError` failure belongs to: the model's `callId` — the
