@@ -96,8 +96,11 @@ write and a manifest here would be a foreign opinion.
 
 ## PRs
 
-`pnpm typecheck && pnpm lint && pnpm test` from the root before opening one — the same commands
-`.github/workflows/build.yaml` runs, across every package (`pnpm -r`; `test` is one vitest run
+`pnpm typecheck && pnpm typecheck:test && pnpm lint && pnpm test` from the root before opening
+one — a subset of what `.github/workflows/build.yaml` runs (CI runs more: the merge-marker,
+CODEOWNERS and catalog guards, docs drift, export-stamp and API-ratchet checks, `pnpm build`, and
+the dist export/consumer checks), across every package (`pnpm -r`; `typecheck` excludes test
+files, so `typecheck:test` is separate; `test` is one vitest run
 over `packages/*` plus a `scripts` project for the root's `scripts/*.test.mjs`). A change that touches a package's published surface also
 needs a changeset (`pnpm changeset`). `pnpm lint:worktree` is an alias of `pnpm lint` that
 fabrika's `build check` invokes by that name.
