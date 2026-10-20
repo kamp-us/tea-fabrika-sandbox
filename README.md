@@ -2,6 +2,10 @@
 
 The demlik monorepo. Each package publishes to npm on its own version.
 
+## Sandbox
+
+This repository is a sandbox for tea-fabrika experiments, not the real demlik repository. Its pull requests are made by a test, so do not treat them as shipped work.
+
 | Package | What it is |
 |---|---|
 | [`@demlik/tea`](./packages/tea) | A TEA / Elm-Architecture TypeScript library for durable, replayable state machines: one pure reducer, every host adapter. |
