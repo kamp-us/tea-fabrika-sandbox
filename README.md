@@ -9,6 +9,10 @@ The demlik monorepo. Each package publishes to npm on its own version.
 | [`@demlik/structure-sweep`](./packages/structure-sweep) | Asks Jev which feature and role every source file belongs to, against a vocabulary the repository supplies, judges code-graph collapse pairs, and moves files into feature folders with their imports rewritten. |
 | [`@demlik/backlog-sweep`](./packages/backlog-sweep) | Gathers evidence for every open GitHub issue and asks Jev whether each is still needed, writing one proposal per issue for a human to act on. |
 
+## Sandbox
+
+This repository is a sandbox for tea-fabrika experiments, not the real project. Its pull requests are made by a test, so do not treat them as real work.
+
 ## Working here
 
 ```sh
